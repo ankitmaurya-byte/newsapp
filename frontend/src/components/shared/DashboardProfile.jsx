@@ -1,7 +1,7 @@
-import React, { useRef, useState } from "react"
-import { useDispatch, useSelector } from "react-redux"
-import { Input } from "../ui/input"
-import { Button } from "../ui/button"
+import React, { useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
 import {
   deleteUserFailure,
   deleteUserStart,
@@ -10,9 +10,10 @@ import {
   updateFailure,
   updateStart,
   updateSuccess,
-} from "@/redux/user/userSlice"
-import { getFilePreview, uploadFile } from "@/lib/appwrite/uploadImage"
-import { useToast } from "@/hooks/use-toast"
+} from "@/redux/user/userSlice";
+// Assuming these Appwrite functions handle file uploads and return URLs/IDs
+import { getFilePreview, uploadFile } from "@/lib/appwrite/uploadImage";
+import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,125 +24,204 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "../ui/alert-dialog"
+} from "../ui/alert-dialog";
+import axios from "axios"; // Import axios
 
 const DashboardProfile = () => {
-  const { currentUser, error, loading } = useSelector((state) => state.user)
+  const { currentUser, error, loading } = useSelector((state) => state.user);
 
-  const profilePicRef = useRef()
-  const dispatch = useDispatch()
-  const { toast } = useToast()
+  const profilePicRef = useRef();
+  const dispatch = useDispatch();
+  const { toast } = useToast();
 
-  const [imageFile, setImageFile] = useState(null)
-  const [imageFileUrl, setImageFileUrl] = useState(null)
-  const [formData, setFormData] = useState({})
+  const [imageFile, setImageFile] = useState(null);
+  const [imageFileUrl, setImageFileUrl] = useState(null);
+  const [formData, setFormData] = useState({});
+  const [updateLoading, setUpdateLoading] = useState(false); // Local loading state for update
+  const [deleteLoading, setDeleteLoading] = useState(false); // Local loading state for delete
+  const [signoutLoading, setSignoutLoading] = useState(false); // Local loading state for signout
 
-  // console.log(formData)
+  // console.log(formData) // Uncomment for debugging if needed
+  function convertAppwritePreviewToView(url) {
+    if (!url.includes("/preview")) return url;
 
+    // Replace /preview with /view and strip query params except "project"
+    const urlObj = new URL(url);
+    urlObj.pathname = urlObj.pathname.replace("/preview", "/view");
+
+    // Keep only the "project" query param
+    const project = urlObj.searchParams.get("project");
+    urlObj.search = project ? `?project=${project}` : "";
+
+    return urlObj.toString();
+  }
+  // Handles file selection for profile picture
   const handleImageChange = (e) => {
-    const file = e.target.files[0]
-
-    // console.log(file)
+    const file = e.target.files[0];
     if (file) {
-      setImageFile(file)
-      setImageFileUrl(URL.createObjectURL(file))
+      setImageFile(file);
+      setImageFileUrl(URL.createObjectURL(file)); // Create a preview URL
     }
-  }
+  };
 
+  // Handles changes in input fields
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.id]: e.target.value })
-  }
+    setFormData({ ...formData, [e.target.id]: e.target.value });
+  };
 
+  // Uploads image using Appwrite and returns the URL
   const uploadImage = async () => {
-    if (!imageFile) return currentUser.profilePicture
+    // If no new file is selected, return the current profile picture URL
+    if (!imageFile) return currentUser.profilePicture;
 
     try {
-      const uploadedFile = await uploadFile(imageFile)
-      const profilePictureUrl = getFilePreview(uploadedFile.$id)
+      // Upload the file using your Appwrite function
+      const uploadedFile = await uploadFile(imageFile);
+      // Get the preview URL for the uploaded file ID
+      const profilePictureUrl = convertAppwritePreviewToView(
+        getFilePreview(uploadedFile.$id).href
+      );
 
-      return profilePictureUrl
+      return profilePictureUrl;
     } catch (error) {
-      toast({ title: "Update user failed. Please try again!" })
-      console.log("Image upload failed: ", error)
+      toast({ title: "Image upload failed. Please try again!" });
+      console.error("Image upload failed: ", error);
+      // Return current picture URL or null if upload fails
+      return currentUser.profilePicture;
     }
-  }
+  };
 
+  // Handles profile update submission
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
     try {
-      dispatch(updateStart())
+      dispatch(updateStart()); // Dispatch Redux action
+      setUpdateLoading(true); // Set local loading state
 
-      // wait for image upload
-      const profilePicture = await uploadImage()
+      // Wait for image upload to complete and get the URL
+      const profilePicture = await uploadImage();
 
+      // Prepare the update data
       const updateProfile = {
         ...formData,
         profilePicture,
-      }
+      };
 
-      const res = await fetch(`/api/user/update/${currentUser._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updateProfile),
-      })
+      // Use axios for the PUT request
+      const res = await axios.put(
+        `http://localhost:5000/api/user/update/${currentUser._id}`,
+        updateProfile, // Data goes directly as the second argument
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true, // <-- Include credentials (cookies)
+        }
+      );
 
-      const data = await res.json()
+      const data = res.data; // axios puts the response body in .data
 
-      if (data.success === false) {
-        toast({ title: "Update user failed. Please try again!" })
-        dispatch(updateFailure(data.message))
+      // Check if the request was successful based on axios response status
+      if (res.status !== 200) {
+        // Use the message from the response data if available
+        const errorMessage =
+          data.message || "Update user failed. Please try again.";
+        toast({ title: errorMessage });
+        dispatch(updateFailure(errorMessage));
       } else {
-        console.log("I am running")
-        dispatch(updateSuccess(data))
-        toast({ title: "User updated successfully." })
+        console.log("User updated successfully:", data);
+        dispatch(updateSuccess(data)); // Dispatch Redux action with updated user data
+        toast({ title: "User updated successfully." });
       }
     } catch (error) {
-      toast({ title: "Update user failed. Please try again!" })
-      dispatch(updateFailure(error.message))
+      console.error("Update user error:", error); // Log the actual error
+      // Handle network errors or errors from the server
+      const errorMessage =
+        error.response?.data?.message ||
+        "Update user failed. Please try again.";
+      toast({ title: errorMessage });
+      dispatch(updateFailure(errorMessage));
+    } finally {
+      setUpdateLoading(false); // Reset local loading state
     }
-  }
+  };
 
+  // Handles user deletion
   const handleDeleteUser = async () => {
     try {
-      dispatch(deleteUserStart())
+      dispatch(deleteUserStart()); // Dispatch Redux action
+      setDeleteLoading(true); // Set local loading state
 
-      const res = await fetch(`/api/user/delete/${currentUser._id}`, {
-        method: "DELETE",
-      })
+      // Use axios for the DELETE request
+      const res = await axios.delete(
+        `http://localhost:5000/api/user/delete/${currentUser._id}`,
+        {
+          withCredentials: true, // <-- Include credentials (cookies)
+        }
+      );
 
-      const data = await res.json()
+      const data = res.data; // axios puts the response body in .data
 
-      if (!res.ok) {
-        dispatch(deleteUserFailure(data.message))
+      // Check if the request was successful based on axios response status
+      if (res.status !== 200) {
+        const errorMessage =
+          data.message || "Delete user failed. Please try again.";
+        dispatch(deleteUserFailure(errorMessage));
+        toast({ title: errorMessage }); // Show toast on failure
       } else {
-        dispatch(deleteUserSuccess())
+        dispatch(deleteUserSuccess()); // Dispatch Redux action
+        toast({ title: "Account deleted successfully." }); // Show toast on success
       }
     } catch (error) {
-      console.log(error)
-      dispatch(deleteUserFailure(error.message))
+      console.error("Delete user error:", error); // Log the actual error
+      // Handle network errors or errors from the server
+      const errorMessage =
+        error.response?.data?.message ||
+        "Delete user failed. Please try again.";
+      dispatch(deleteUserFailure(errorMessage));
+      toast({ title: errorMessage }); // Show toast on error
+    } finally {
+      setDeleteLoading(false); // Reset local loading state
     }
-  }
+  };
 
+  // Handles user sign out
   const handleSignout = async () => {
     try {
-      const res = await fetch("/api/user/signout", {
-        method: "POST",
-      })
+      setSignoutLoading(true); // Set local loading state
 
-      const data = await res.json()
+      // Use axios for the POST request
+      const res = await axios.post(
+        "http://localhost:5000/api/user/signout",
+        {}, // POST requests often expect a body, even if empty
+        {
+          withCredentials: true, // <-- Include credentials (cookies)
+        }
+      );
 
-      if (!res.ok) {
-        console.log(data.message)
+      const data = res.data; // axios puts the response body in .data
+
+      // Check if the request was successful based on axios response status
+      if (res.status !== 200) {
+        console.error("Sign out failed:", data.message);
+        toast({ title: data.message || "Sign out failed. Please try again." });
+        // Depending on your Redux setup, you might dispatch a failure action here
       } else {
-        dispatch(signOutSuccess())
+        dispatch(signOutSuccess()); // Dispatch Redux action
+        toast({ title: "Signed out successfully." }); // Show toast on success
       }
     } catch (error) {
-      console.log(error)
+      console.error("Sign out error:", error); // Log the actual error
+      // Handle network errors or errors from the server
+      const errorMessage =
+        error.response?.data?.message || "Sign out failed. Please try again.";
+      toast({ title: errorMessage });
+      // Depending on your Redux setup, you might dispatch a failure action here
+    } finally {
+      setSignoutLoading(false); // Reset local loading state
     }
-  }
+  };
 
   return (
     <div className="max-w-lg mx-auto p-3 w-full">
@@ -150,6 +230,7 @@ const DashboardProfile = () => {
       </h1>
 
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        {/* Hidden file input */}
         <input
           type="file"
           accept="image/*"
@@ -158,15 +239,17 @@ const DashboardProfile = () => {
           onChange={handleImageChange}
         />
 
+        {/* Profile picture display, clickable to open file input */}
         <div className="w-32 h-32 self-center cursor-pointer overflow-hidden">
           <img
             src={imageFileUrl || currentUser.profilePicture}
-            alt=""
+            alt="Profile" // Descriptive alt text
             className="rounded-full w-full h-full object-cover border-8 border-gray-300"
             onClick={() => profilePicRef.current.click()}
           />
         </div>
 
+        {/* Username Input */}
         <Input
           type="text"
           id="username"
@@ -176,6 +259,7 @@ const DashboardProfile = () => {
           onChange={handleChange}
         />
 
+        {/* Email Input */}
         <Input
           type="email"
           id="email"
@@ -185,6 +269,7 @@ const DashboardProfile = () => {
           onChange={handleChange}
         />
 
+        {/* Password Input */}
         <Input
           type="password"
           id="password"
@@ -193,23 +278,33 @@ const DashboardProfile = () => {
           onChange={handleChange}
         />
 
-        <Button type="submit" className="h-12 bg-green-600" disabled={loading}>
-          {loading ? "Loading..." : "Update Profile"}
+        {/* Update Profile Button */}
+        <Button
+          type="submit"
+          className="h-12 bg-green-600"
+          disabled={updateLoading || loading}
+        >
+          {updateLoading ? "Loading..." : "Update Profile"}
         </Button>
       </form>
 
+      {/* Delete Account and Sign Out Buttons */}
       <div className="text-red-500 flex justify-between mt-5 ">
+        {/* Delete Account AlertDialog */}
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" className="cursor-pointer">
-              Delete Account
+            <Button
+              variant="ghost"
+              className="cursor-pointer"
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? "Deleting..." : "Delete Account"}
             </Button>
           </AlertDialogTrigger>
 
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete your
                 account and remove your data from our servers.
@@ -217,10 +312,13 @@ const DashboardProfile = () => {
             </AlertDialogHeader>
 
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleteLoading}>
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600"
                 onClick={handleDeleteUser}
+                disabled={deleteLoading}
               >
                 Continue
               </AlertDialogAction>
@@ -228,18 +326,21 @@ const DashboardProfile = () => {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Sign Out Button */}
         <Button
           variant="ghost"
           className="cursor-pointer"
           onClick={handleSignout}
+          disabled={signoutLoading}
         >
-          Sign Out
+          {signoutLoading ? "Signing Out..." : "Sign Out"}
         </Button>
       </div>
 
-      <p className="text-red-600">{error}</p>
+      {/* Display Redux error state */}
+      {error && <p className="text-red-600 mt-5">{error}</p>}
     </div>
-  )
-}
+  );
+};
 
-export default DashboardProfile
+export default DashboardProfile;

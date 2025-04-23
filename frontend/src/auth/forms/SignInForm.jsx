@@ -1,10 +1,11 @@
-import React, { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios"; // Import axios
 
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { Button } from "@/components/ui/button"
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -13,69 +14,77 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { useToast } from "@/hooks/use-toast"
-import { useDispatch, useSelector } from "react-redux"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useDispatch, useSelector } from "react-redux";
 import {
   signInFailure,
   signInStart,
   signInSuccess,
-} from "@/redux/user/userSlice"
-import GoogleAuth from "@/components/shared/GoogleAuth"
+} from "@/redux/user/userSlice";
+import GoogleAuth from "@/components/shared/GoogleAuth";
 
+// Define the validation schema for the form using Zod
 const formSchema = z.object({
-  email: z.string().min({ message: "Invalid email address." }),
+  email: z.string().email({ message: "Invalid email address." }), // Use .email() for email validation
   password: z
     .string()
-    .min(8, { message: "Password must be atleast 8 characters." }),
-})
+    .min(8, { message: "Password must be at least 8 characters." }),
+});
 
 const SignInForm = () => {
-  const { toast } = useToast()
-  const navigate = useNavigate()
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const dispatch = useDispatch()
+  // Get loading state and error message from Redux store
+  const { loading, error: errorMessage } = useSelector((state) => state.user);
 
-  const { loading, error: errorMessage } = useSelector((state) => state.user)
-
-  // 1. Define your form.
+  // 1. Define your form using react-hook-form and zodResolver
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
       password: "",
     },
-  })
+  });
 
   // 2. Define a submit handler.
   async function onSubmit(values) {
     try {
-      dispatch(signInStart())
+      dispatch(signInStart()); // Dispatch action to indicate sign-in process started
 
-      const res = await fetch("/api/auth/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      })
+      // Use axios.post to send the sign-in request
+      const res = await axios.post(
+        "http://localhost:5000/api/auth/signin",
+        values, // Data goes directly as the second argument
+        {
+          headers: { "Content-Type": "application/json" },
+          withCredentials: true, // <-- Include credentials (cookies)
+        }
+      );
 
-      const data = await res.json()
+      const data = res.data; // axios puts the response body in .data
 
-      if (data.success === false) {
-        toast({ title: "Sign in failed! Please try again." })
-
-        dispatch(signInFailure(data.message))
-      }
-
-      if (res.ok) {
-        dispatch(signInSuccess(data))
-
-        toast({ title: "Sign in Successful!" })
-        navigate("/")
+      // Check if the request was successful based on axios response status
+      if (res.status !== 200) {
+        // Use the message from the response data if available
+        const errorMsg = data.message || "Sign in failed! Please try again.";
+        toast({ title: errorMsg });
+        dispatch(signInFailure(errorMsg)); // Dispatch failure with the error message
+      } else {
+        // If successful
+        dispatch(signInSuccess(data)); // Dispatch success with user data
+        toast({ title: "Sign in Successful!" });
+        navigate("/"); // Navigate to home page on success
       }
     } catch (error) {
-      toast({ title: "Something went wrong!" })
-      dispatch(signInFailure(error.message))
+      console.error("Sign in error:", error); // Log the actual error
+      // Handle network errors or errors from the server (e.g., 400, 500 status codes)
+      const errorMsg = error.response?.data?.message || "Something went wrong!";
+      toast({ title: errorMsg });
+      dispatch(signInFailure(errorMsg)); // Dispatch failure with the error message
     }
   }
 
@@ -105,13 +114,13 @@ const SignInForm = () => {
         <div className="flex-1">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
+              {/* Email Field */}
               <FormField
                 control={form.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Email</FormLabel>
-
                     <FormControl>
                       <Input
                         type="email"
@@ -119,19 +128,18 @@ const SignInForm = () => {
                         {...field}
                       />
                     </FormControl>
-
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              {/* Password Field */}
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Password</FormLabel>
-
                     <FormControl>
                       <Input
                         type="password"
@@ -139,16 +147,16 @@ const SignInForm = () => {
                         {...field}
                       />
                     </FormControl>
-
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              {/* Sign In Button */}
               <Button
                 type="submit"
                 className="bg-blue-500 w-full"
-                disabled={loading}
+                disabled={loading} // Disable button while loading
               >
                 {loading ? (
                   <span className="animate-pulse">Loading...</span>
@@ -157,23 +165,25 @@ const SignInForm = () => {
                 )}
               </Button>
 
+              {/* Google Authentication Component */}
               <GoogleAuth />
             </form>
           </Form>
 
+          {/* Link to Sign Up page */}
           <div className="flex gap-2 text-sm mt-5">
             <span>Don't have an account?</span>
-
             <Link to="/sign-up" className="text-blue-500">
               Sign Up
             </Link>
           </div>
 
+          {/* Display Redux error message */}
           {errorMessage && <p className="mt-5 text-red-500">{errorMessage}</p>}
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default SignInForm
+export default SignInForm;

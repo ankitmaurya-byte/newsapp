@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react"
-import { useSelector } from "react-redux"
+import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import {
   Table,
   TableBody,
@@ -8,8 +8,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table"
-import { Link } from "react-router-dom"
+} from "../ui/table";
+import { Link } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,80 +20,111 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "../ui/alert-dialog"
-import { FaCheck } from "react-icons/fa"
-import { RxCross2 } from "react-icons/rx"
+} from "../ui/alert-dialog";
+import { FaCheck } from "react-icons/fa";
+import { RxCross2 } from "react-icons/rx";
+import axios from "axios"; // Import axios
 
 const DashboardUsers = () => {
-  const { currentUser } = useSelector((state) => state.user)
+  const { currentUser } = useSelector((state) => state.user);
 
-  const [users, setUsers] = useState([])
-  // console.log(userPosts)
-
-  const [showMore, setShowMore] = useState(true)
-  const [userIdToDelete, setUserIdToDelete] = useState("")
+  const [users, setUsers] = useState([]);
+  const [showMore, setShowMore] = useState(true);
+  const [userIdToDelete, setUserIdToDelete] = useState("");
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch(`/api/user/getusers`)
+        // Use axios.get instead of fetch and include withCredentials
+        const res = await axios.get(`http://localhost:5000/api/user/getusers`, {
+          withCredentials: true, // Include credentials (like cookies)
+        });
 
-        const data = await res.json()
+        const data = res.data; // Axios puts the response data in the .data property
 
-        if (res.ok) {
-          setUsers(data.users)
+        // Check for successful status code (Axios throws for non-2xx by default, but explicit check is good practice)
+        if (res.status === 200) {
+          setUsers(data.users);
 
           if (data.users.length < 9) {
-            setShowMore(false)
+            setShowMore(false);
           }
         }
       } catch (error) {
-        console.log(error)
+        // Axios errors have a response property with status and data if it's an HTTP error
+        if (error.response) {
+          console.log(error.response.data.message);
+        } else {
+          console.log(error.message);
+        }
       }
-    }
+    };
 
     if (currentUser.isAdmin) {
-      fetchUsers()
+      fetchUsers();
     }
-  }, [currentUser._id])
+    // Added currentUser._id to dependency array as it's used in the if condition
+  }, [currentUser.isAdmin]); // Dependency array includes currentUser.isAdmin
 
   const handleShowMore = async () => {
-    const startIndex = users.length
+    const startIndex = users.length;
 
     try {
-      const res = await fetch(`/api/user/getusers?startIndex=${startIndex}`)
+      // Use axios.get instead of fetch and include withCredentials
+      const res = await axios.get(
+        `http://localhost:5000/api/user/getusers?startIndex=${startIndex}`,
+        {
+          withCredentials: true, // Include credentials (like cookies)
+        }
+      );
 
-      const data = await res.json()
+      const data = res.data; // Axios puts the response data in the .data property
 
-      if (res.ok) {
-        setUsers((prev) => [...prev, ...data.users])
+      // Check for successful status code
+      if (res.status === 200) {
+        setUsers((prev) => [...prev, ...data.users]);
 
         if (data.users.length < 9) {
-          setShowMore(false)
+          setShowMore(false);
         }
       }
     } catch (error) {
-      console.log(error.message)
+      // Axios errors have a response property with status and data if it's an HTTP error
+      if (error.response) {
+        console.log(error.response.data.message);
+      } else {
+        console.log(error.message);
+      }
     }
-  }
+  };
 
   const handleDeleteUser = async () => {
     try {
-      const res = await fetch(`/api/user/delete/${userIdToDelete}`, {
-        method: "DELETE",
-      })
+      // Use axios.delete instead of fetch and include withCredentials
+      const res = await axios.delete(
+        `http://localhost:5000/api/user/delete/${userIdToDelete}`,
+        {
+          withCredentials: true, // Include credentials (like cookies)
+        }
+      );
 
-      const data = await res.json()
+      const data = res.data; // Axios puts the response data in the .data property
 
-      if (res.ok) {
-        setUsers((prev) => prev.filter((user) => user._id !== userIdToDelete))
+      // Check for successful status code
+      if (res.status === 200) {
+        setUsers((prev) => prev.filter((user) => user._id !== userIdToDelete));
       } else {
-        console.log(data.message)
+        console.log(data.message);
       }
     } catch (error) {
-      console.log(error.message)
+      // Axios errors have a response property with status and data if it's an HTTP error
+      if (error.response) {
+        console.log(error.response.data.message);
+      } else {
+        console.log(error.message);
+      }
     }
-  }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center w-full p-3">
@@ -145,7 +176,7 @@ const DashboardUsers = () => {
                       <AlertDialogTrigger asChild>
                         <span
                           onClick={() => {
-                            setUserIdToDelete(user._id)
+                            setUserIdToDelete(user._id);
                           }}
                           className="font-medium text-red-600 hover:underline cursor-pointer"
                         >
@@ -196,7 +227,7 @@ const DashboardUsers = () => {
         <p>You have no subscriber yet!</p>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default DashboardUsers
+export default DashboardUsers;

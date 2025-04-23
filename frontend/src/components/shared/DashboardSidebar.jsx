@@ -1,33 +1,43 @@
-import { signOutSuccess } from "@/redux/user/userSlice"
-import React from "react"
-import { FaComments, FaSignOutAlt, FaUserAlt, FaUsers } from "react-icons/fa"
-import { useDispatch, useSelector } from "react-redux"
-import { Link } from "react-router-dom"
-import { IoIosCreate, IoIosDocument } from "react-icons/io"
-import { MdDashboardCustomize } from "react-icons/md"
+import { signOutSuccess } from "@/redux/user/userSlice";
+import React from "react";
+import { FaComments, FaSignOutAlt, FaUserAlt, FaUsers } from "react-icons/fa";
+import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router-dom";
+import { IoIosCreate, IoIosDocument } from "react-icons/io";
+import { MdDashboardCustomize } from "react-icons/md";
+import axios from "axios"; // Import axios
 
 const DashboardSidebar = () => {
-  const dispatch = useDispatch()
+  const dispatch = useDispatch();
 
-  const { currentUser } = useSelector((state) => state.user)
+  const { currentUser } = useSelector((state) => state.user);
 
   const handleSignout = async () => {
     try {
-      const res = await fetch("/api/user/signout", {
-        method: "POST",
-      })
+      // Use axios.post instead of fetch
+      const res = await axios.post(
+        "http://localhost:5000/api/user/signout",
+        {}, // POST requests with no body still need a data argument (can be empty object)
+        { withCredentials: true } // Include credentials (like cookies)
+      );
 
-      const data = await res.json()
+      const data = res.data; // Axios puts the response data in the .data property
 
-      if (!res.ok) {
-        console.log(data.message)
+      // Check for successful status code (Axios throws for non-2xx by default, but explicit check is good practice)
+      if (res.status !== 200) {
+        console.log(data.message);
       } else {
-        dispatch(signOutSuccess())
+        dispatch(signOutSuccess());
       }
     } catch (error) {
-      console.log(error)
+      // Axios errors have a response property with status and data if it's an HTTP error
+      if (error.response) {
+        console.log(error.response.data.message);
+      } else {
+        console.log(error.message);
+      }
     }
-  }
+  };
 
   return (
     <aside className="h-screen w-64 bg-slate-200 text-slate-800 flex flex-col">
@@ -121,7 +131,7 @@ const DashboardSidebar = () => {
         </div>
       </nav>
     </aside>
-  )
-}
+  );
+};
 
-export default DashboardSidebar
+export default DashboardSidebar;

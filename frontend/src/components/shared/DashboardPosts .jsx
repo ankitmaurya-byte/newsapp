@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react"
-import { useSelector } from "react-redux"
+import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import {
   Table,
   TableBody,
@@ -8,8 +8,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table"
-import { Link } from "react-router-dom"
+} from "../ui/table";
+import { Link } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,87 +20,92 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "../ui/alert-dialog"
+} from "../ui/alert-dialog";
+import axios from "axios"; // Import axios
 
 const DashboardPosts = () => {
-  const { currentUser } = useSelector((state) => state.user)
+  const { currentUser } = useSelector((state) => state.user);
 
-  const [userPosts, setUserPosts] = useState([])
-  // console.log(userPosts)
-
-  const [showMore, setShowMore] = useState(true)
-  const [postIdToDelete, setPostIdToDelete] = useState("")
+  const [userPosts, setUserPosts] = useState([]);
+  const [showMore, setShowMore] = useState(true);
+  const [postIdToDelete, setPostIdToDelete] = useState("");
 
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await fetch(`/api/post/getposts?userId=${currentUser._id}`)
+        const res = await axios.get(
+          // Use axios.get
+          `http://localhost:5000/api/post/getposts?userId=${currentUser._id}`,
+          { withCredentials: true } // Include credentials
+        );
 
-        const data = await res.json()
+        const data = res.data; // Axios puts the response data in the .data property
 
-        if (res.ok) {
-          setUserPosts(data.posts)
+        if (res.status === 200) {
+          // Check for successful status code
+          setUserPosts(data.posts);
 
           if (data.posts.length < 9) {
-            setShowMore(false)
+            setShowMore(false);
           }
         }
       } catch (error) {
-        console.log(error)
+        console.log(error.message);
       }
-    }
+    };
 
     if (currentUser.isAdmin) {
-      fetchPosts()
+      fetchPosts();
     }
-  }, [currentUser._id])
+  }, [currentUser._id]);
 
   const handleShowMore = async () => {
-    const startIndex = userPosts.length
+    const startIndex = userPosts.length;
 
     try {
-      const res = await fetch(
-        `/api/post/getposts?userId=${currentUser._id}&startIndex=${startIndex}`
-      )
+      const res = await axios.get(
+        // Use axios.get
+        `http://localhost:5000/api/post/getposts?userId=${currentUser._id}&startIndex=${startIndex}`,
+        { withCredentials: true } // Include credentials
+      );
 
-      const data = await res.json()
+      const data = res.data; // Axios puts the response data in the .data property
 
-      if (res.ok) {
-        setUserPosts((prev) => [...prev, ...data.posts])
+      if (res.status === 200) {
+        // Check for successful status code
+        setUserPosts((prev) => [...prev, ...data.posts]);
 
         if (data.posts.length < 9) {
-          setShowMore(false)
+          setShowMore(false);
         }
       }
     } catch (error) {
-      console.log(error.message)
+      console.log(error.message);
     }
-  }
+  };
 
   const handleDeletePost = async () => {
-    // console.log(postIdToDelete)
-
     try {
-      const res = await fetch(
-        `/api/post/deletepost/${postIdToDelete}/${currentUser._id}`,
-        {
-          method: "DELETE",
-        }
-      )
+      const res = await axios.delete(
+        // Use axios.delete
+        `http://localhost:5000/api/post/deletepost/${postIdToDelete}/${currentUser._id}`,
+        { withCredentials: true } // Include credentials
+      );
 
-      const data = await res.json()
+      const data = res.data; // Axios puts the response data in the .data property
 
-      if (!res.ok) {
-        console.log(data.message)
+      if (res.status !== 200) {
+        // Check for non-successful status code
+        console.log(data.message);
       } else {
         setUserPosts((prev) =>
           prev.filter((post) => post._id !== postIdToDelete)
-        )
+        );
       }
     } catch (error) {
-      console.log(error.message)
+      console.log(error.message);
     }
-  }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center w-full p-3">
@@ -148,7 +153,7 @@ const DashboardPosts = () => {
                       <AlertDialogTrigger asChild>
                         <span
                           onClick={() => {
-                            setPostIdToDelete(post._id)
+                            setPostIdToDelete(post._id);
                           }}
                           className="font-medium text-red-600 hover:underline cursor-pointer"
                         >
@@ -208,7 +213,7 @@ const DashboardPosts = () => {
         <p>You have no posts yet!</p>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default DashboardPosts
+export default DashboardPosts;

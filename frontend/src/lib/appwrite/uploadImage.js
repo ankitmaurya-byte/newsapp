@@ -1,5 +1,5 @@
-import { ID, ImageGravity } from "appwrite"
-import { appwriteConfig, storage } from "./config"
+import { ID, ImageGravity } from "appwrite";
+import { appwriteConfig, storage } from "./config";
 
 // Upload File
 export async function uploadFile(file) {
@@ -8,11 +8,10 @@ export async function uploadFile(file) {
       appwriteConfig.storageId,
       ID.unique(),
       file
-    )
-
-    return uploadedFile
+    );
+    return uploadedFile;
   } catch (error) {
-    console.log(error)
+    console.log(error);
   }
 }
 
@@ -26,12 +25,10 @@ export function getFilePreview(fileId) {
       2000,
       ImageGravity.Top,
       100
-    )
-
-    if (!fileUrl) throw Error
-
-    return fileUrl
+    );
+    if (!fileUrl) throw Error;
+    return fileUrl;
   } catch (error) {
-    console.log(error)
+    console.log(error);
   }
 }
